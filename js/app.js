@@ -5,6 +5,7 @@
   const MEAL_KEY = "shiguang.meal";
   const REVIEW_KEY = "shiguang.reviews";
   const EAT_KEY = "shiguang.eaten";
+  const AVOID_KEY = "shiguang.avoid";
   const MEALS = ["auto", "breakfast", "lunch", "tea", "dinner", "late"];
   const TASTE = { mild: "清淡", medium: "微辣", hot: "重口" };
   const VIEWS = {
@@ -34,6 +35,7 @@
 
   let reviews = {};
   let eaten = [];
+  let avoided = new Set();
 
   let restoreSearch = false;
   let composing = false;
@@ -186,6 +188,30 @@
   reviews = loadReviews();
   eaten = loadEaten();
 
+  function loadAvoid() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(AVOID_KEY) || "[]");
+      const ids = Array.isArray(raw) ? raw : [];
+      return new Set(ids.filter(function (id) { return windowById(id); }));
+    } catch (err) {
+      return new Set();
+    }
+  }
+
+  function saveAvoid() {
+    try {
+      localStorage.setItem(AVOID_KEY, JSON.stringify(Array.from(avoided)));
+    } catch (err) {
+      /* 写不进去就只留在这次浏览里。 */
+    }
+  }
+
+  function stallBad(stall) {
+    return Boolean(stall && (stall.warning || avoided.has(stall.id)));
+  }
+
+  avoided = loadAvoid();
+
   function mealNow() {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 9) return "breakfast";
@@ -254,7 +280,7 @@
 
   function isRisky(dish) {
     const stall = windowById(dish.windowId);
-    return Boolean(stall && stall.warning) || dish.rating < 3.2;
+    return stallBad(stall) || dish.rating < 3.2;
   }
 
   function place(dish) {
@@ -478,7 +504,7 @@
       return dish.isNew && dish.meals.indexOf(mealKey) !== -1 && matchesCanteen(dish) && !eatenRecent(dish.id);
     });
     const risky = DATA.windows.filter(function (stall) {
-      if (!stall.warning) return false;
+      if (!stallBad(stall)) return false;
       if (state.canteenId !== "all" && stall.canteenId !== state.canteenId) return false;
       return DATA.dishes.some(function (dish) {
         return dish.windowId === stall.id && dish.meals.indexOf(mealKey) !== -1;
@@ -577,7 +603,7 @@
       "<div class=\"w-main\">",
       '<div class="top"><strong>' + esc(stall.name) + '</strong><span class="score-pack">' + stars(stall.rating) + '<b class="rating">' + stall.rating.toFixed(1) + "</b></span></div>",
       '<div class="where"><span>' + icon("pin") + esc(canteen.name) + " " + esc(canteen.area) + "</span><span>" + icon("clock") + esc(stall.wait) + "</span></div>",
-      bad ? '<p class="note">' + esc(stall.note) + "</p>" : "",
+      bad ? '<p class="note">' + esc(stall.warning ? stall.note : "自己标的") + "</p>" : "",
       '<div class="tag-row">' + names + "</div>",
       "</div></button>"
     ].join("");
@@ -587,8 +613,8 @@
     const stalls = DATA.windows.filter(function (stall) {
       return state.canteenId === "all" || stall.canteenId === state.canteenId;
     });
-    const bad = stalls.filter(function (stall) { return stall.warning; });
-    const good = stalls.filter(function (stall) { return !stall.warning; }).sort(function (a, b) {
+    const bad = stalls.filter(function (stall) { return stallBad(stall); });
+    const good = stalls.filter(function (stall) { return !stallBad(stall); }).sort(function (a, b) {
       if (state.windowSort === "wait") return waitMinutes(a) - waitMinutes(b) || b.rating - a.rating;
       return b.rating - a.rating;
     });
@@ -690,7 +716,7 @@
       '<div class="facts"><span>' + stars(dish.rating) + "<b>" + dish.rating.toFixed(1) + '</b></span><span class="price"><small>¥</small>' + dish.price + "</span><span>" + icon("pin") + esc(where.canteen.name) + "</span><span>" + icon("clock") + esc(where.stall.wait) + "</span></div>",
       '<p class="summary">' + esc(dish.summary) + "</p>",
       '<div class="tag-row">' + dish.tags.map(function (tag) { return '<span class="tag">' + esc(tag) + "</span>"; }).join("") + "</div>",
-      '<div class="callout' + (where.stall.warning ? " bad" : "") + '">' + (where.stall.warning ? icon("warn") : icon("shop")) + esc(where.stall.note) + "</div>",
+      '<div class="callout' + (stallBad(where.stall) ? " bad" : "") + '">' + (stallBad(where.stall) ? icon("warn") : icon("shop")) + esc(where.stall.warning ? where.stall.note : (avoided.has(where.stall.id) ? "自己标的" : where.stall.note)) + "</div>",
       '<div class="btn-row"><button type="button" class="btn btn-primary" data-action="toggle-fav" data-id="' + esc(dish.id) + '">' + icon("heart") + (favorites.has(dish.id) ? "已收藏" : "收藏") + '</button><button type="button" class="btn" data-action="open-window" data-id="' + esc(where.stall.id) + '">' + icon("shop") + "窗口</button></div>",
       '<div class="section-title"><h2>评价</h2></div>',
       reviewComposer(dish),
@@ -709,7 +735,8 @@
       '<button type="button" class="drawer-close" data-action="close-panel" aria-label="关闭">' + icon("close") + "</button>",
       "<h2>" + esc(stall.name) + "</h2>",
       '<div class="facts"><span>' + stars(stall.rating) + "<b>" + stall.rating.toFixed(1) + "</b></span><span>" + icon("pin") + esc(canteen.name) + "</span><span>" + icon("clock") + esc(stall.wait) + "</span><span>" + esc(canteen.hours) + "</span></div>",
-      '<div class="callout' + (stall.warning ? " bad" : "") + '">' + (stall.warning ? icon("warn") : icon("shop")) + esc(stall.note) + "</div>",
+      '<div class="callout' + (stallBad(stall) ? " bad" : "") + '">' + (stallBad(stall) ? icon("warn") : icon("shop")) + esc(stall.warning ? stall.note : (avoided.has(stall.id) ? "自己标的" : stall.note)) + "</div>",
+      '<div class="btn-row"><button type="button" class="btn' + (avoided.has(stall.id) ? "" : " btn-primary") + '" data-action="toggle-avoid" data-id="' + esc(stall.id) + '">' + icon("warn") + (avoided.has(stall.id) ? "取消别去" : "别去") + "</button></div>",
       '<div class="section-title"><h2>在售</h2></div>',
       '<div class="card-grid">' + dishes.map(dishCard).join("") + "</div>",
       "</aside>"
@@ -819,6 +846,12 @@
     if (action === "uneat") {
       eaten = eaten.filter(function (item) { return item.id !== id; });
       saveEaten();
+      state.pickIndex = 0;
+    }
+    if (action === "toggle-avoid") {
+      if (avoided.has(id)) avoided.delete(id);
+      else if (windowById(id)) avoided.add(id);
+      saveAvoid();
       state.pickIndex = 0;
     }
     if (action === "delete-review") {
