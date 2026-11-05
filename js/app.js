@@ -314,13 +314,11 @@
       '<div class="card-top">',
       '<span class="tile ' + dish.taste + '">' + esc(dish.name.slice(0, 1)) + "</span>",
       "<div>",
-      "<h3>" + highlight(dish.name, q) + "</h3>",
-      "<p>" + dish.rating.toFixed(1) + " · " + dish.reviewCount + " 人评过</p>",
-      "<p>" + highlight(where.canteen.name, q) + " · " + highlight(where.stall.name, q) + " · 约 " + esc(where.stall.wait) + "</p>",
+      "<h3><span>" + highlight(dish.name, q) + "</span>" + (mark ? '<span class="badge ' + mark.cls + '">' + mark.text + "</span>" : "") + "</h3>",
+      '<p class="score-line"><b>' + dish.rating.toFixed(1) + "</b>分 · " + dish.reviewCount + "人评过</p>",
+      "<p>" + highlight(where.canteen.name, q) + " · " + highlight(where.stall.name, q) + "</p>",
       "</div></div>",
-      '<div class="card-foot"><span class="price">¥' + dish.price + "</span>",
-      mark ? '<span class="badge ' + mark.cls + '">' + mark.text + "</span>" : "<span></span>",
-      "</div></button>",
+      '<div class="card-foot"><span class="price"><small>¥</small>' + dish.price + '</span><span class="wait">约 ' + esc(where.stall.wait) + "</span></div></button>",
       favButton(dish.id),
       "</article>"
     ].join("");
@@ -515,17 +513,27 @@
     ].join("");
   }
 
+  function navIcon(key) {
+    const paths = {
+      today: '<path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-5v-5H10v5H5a1 1 0 0 1-1-1z"/>',
+      explore: '<circle cx="11" cy="11" r="6.2"/><path d="m16 16 4.2 4.2"/>',
+      windows: '<path d="M4 7h16M4 12h16M4 17h10"/>',
+      saved: '<path d="M12 20s-6.5-4.1-6.5-8.4a3.7 3.7 0 0 1 6.5-1.9 3.7 3.7 0 0 1 6.5 1.9C18.5 15.9 12 20 12 20z"/>'
+    };
+    return '<svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true">' + paths[key] + "</svg>";
+  }
+
   function shell() {
     const nav = Object.keys(VIEWS).map(function (key) {
       const short = { today: "今天", explore: "找菜", windows: "窗口", saved: "收藏" }[key];
-      return '<button type="button" class="nav-btn" data-action="nav" data-nav="' + key + '"><span class="long">' + VIEWS[key] + '</span><span class="short">' + short + "</span></button>";
+      return '<button type="button" class="nav-btn" data-action="nav" data-nav="' + key + '">' + navIcon(key) + '<span class="long">' + VIEWS[key] + '</span><span class="short">' + short + "</span></button>";
     }).join("");
     return [
       '<div class="layout">',
       '<aside class="sidebar">',
       '<div class="brand"><span class="logo">食</span><span><strong>食光</strong><small>' + esc(DATA.campus) + "</small></span></div>",
       '<nav class="side-nav" aria-label="主导航">' + nav + "</nav>",
-      '<p class="side-note">模拟数据，用来演示校园食堂怎么选。评价、排队时间都不是真实档口。</p>',
+      '<p class="side-note">模拟数据，不是真实档口</p>',
       "</aside>",
       '<main class="main" id="view"></main>',
       "</div>",
