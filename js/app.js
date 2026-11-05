@@ -2,6 +2,8 @@
   const DATA = window.CANTEEN_DATA;
   const app = document.getElementById("app");
   const FAV_KEY = "shiguang.favorites";
+  const MEAL_KEY = "shiguang.meal";
+  const MEALS = ["auto", "breakfast", "lunch", "tea", "dinner", "late"];
   const TASTE = { mild: "清淡", medium: "微辣", hot: "重口" };
   const VIEWS = {
     today: "今天吃什么",
@@ -19,6 +21,7 @@
     onlyNew: false,
     hideRisky: true,
     sort: "rating",
+    meal: "auto",
     pickIndex: 0,
     panel: null
   };
@@ -41,13 +44,32 @@
     }
   }
 
+  function loadMeal() {
+    try {
+      const raw = localStorage.getItem(MEAL_KEY);
+      if (MEALS.indexOf(raw) !== -1) return raw;
+    } catch (err) {
+      /* 读不到时跟当前时间走。 */
+    }
+    return "auto";
+  }
+
   const favorites = loadFavs();
+  state.meal = loadMeal();
 
   function saveFavs() {
     try {
       localStorage.setItem(FAV_KEY, JSON.stringify(Array.from(favorites)));
     } catch (err) {
       /* 隐私模式等场景下忽略写入失败，页面仍可浏览。 */
+    }
+  }
+
+  function saveMeal() {
+    try {
+      localStorage.setItem(MEAL_KEY, state.meal);
+    } catch (err) {
+      /* 写不进去就只在本次浏览里生效。 */
     }
   }
 
@@ -77,6 +99,35 @@
       late: ["夜宵", "还开着的窗口不多，差评档口先跳过。"]
     };
     return { label: map[meal][0], hint: map[meal][1] };
+  }
+
+  function activeMeal() {
+    return state.meal === "auto" ? mealNow() : state.meal;
+  }
+
+  function waitMinutes(stall) {
+    const match = String(stall.wait).match(/(\d+)/);
+    return match ? Number(match[1]) : 10;
+  }
+
+  function waitWeight(meal) {
+    if (meal === "lunch") return 0.55;
+    if (meal === "breakfast") return 0.35;
+    if (meal === "dinner") return 0.22;
+    return 0.18;
+  }
+
+  function dishScore(dish, meal) {
+    const stall = windowById(dish.windowId);
+    const familiarity = Math.min(dish.reviewCount, 400) / 80;
+    return dish.rating * 10 + familiarity - waitMinutes(stall) * waitWeight(meal);
+  }
+
+  function median(nums) {
+    if (!nums.length) return 0;
+    const copy = nums.slice().sort(function (a, b) { return a - b; });
+    const mid = Math.floor(copy.length / 2);
+    return copy.length % 2 ? copy[mid] : (copy[mid - 1] + copy[mid]) / 2;
   }
 
   function greeting() {
@@ -115,12 +166,30 @@
   }
 
   function todayList() {
-    const meal = mealNow();
+    const meal = activeMeal();
     return DATA.dishes.filter(function (dish) {
       return dish.meals.indexOf(meal) !== -1 && matchesCanteen(dish) && matchesTasteBudget(dish) && !isRisky(dish);
     }).sort(function (a, b) {
-      return (b.rating * 10 + b.reviewCount / 100) - (a.rating * 10 + a.reviewCount / 100);
+      return dishScore(b, meal) - dishScore(a, meal);
     });
+  }
+
+  function reasonsFor(dish, list) {
+    const where = place(dish);
+    const wait = waitMinutes(where.stall);
+    const typical = median(list.map(function (item) { return waitMinutes(place(item).stall); }));
+    let queue = "大约排 " + where.stall.wait;
+    if (list.length > 1 && wait < typical) queue += "，比这一餐多数窗口快";
+    else if (list.length > 1 && wait > typical) queue += "，队比中位更长，但分数和口味更合适";
+    else if (list.length > 1) queue += "，和这一餐的中位排队一样";
+    const bits = [];
+    if (dish.isNew) bits.push("新品");
+    bits.push(TASTE[dish.taste], "¥" + dish.price, dish.reviewCount + " 人评过");
+    return [
+      where.stall.name + " " + where.stall.rating.toFixed(1) + " 分，近期没有集中差评",
+      queue,
+      bits.join(" · ")
+    ];
   }
 
   function pickToday() {
@@ -183,6 +252,13 @@
     return '<button type="button" class="chip" data-action="' + action + '" data-value="' + esc(value) + '" aria-pressed="' + on + '">' + esc(label) + "</button>";
   }
 
+  function mealSwitch() {
+    const labels = { auto: "现在", breakfast: "早餐", lunch: "午餐", tea: "下午", dinner: "晚餐", late: "夜宵" };
+    return '<div class="meal-switch" role="group" aria-label="选择餐段">' + MEALS.map(function (value) {
+      return '<button type="button" class="meal" data-action="set-meal" data-value="' + value + '" aria-pressed="' + (state.meal === value) + '">' + labels[value] + "</button>";
+    }).join("") + "</div>";
+  }
+
   function canteenChips() {
     const items = [{ id: "all", name: "全部食堂" }].concat(DATA.canteens);
     return items.map(function (item) {
@@ -228,13 +304,20 @@
   }
 
   function renderToday() {
-    const meal = mealMeta(mealNow());
+    const mealKey = activeMeal();
+    const meal = mealMeta(mealKey);
+    const nowMeal = mealMeta(mealNow());
+    const lookingAhead = state.meal !== "auto";
     const picked = pickToday();
     const fresh = DATA.dishes.filter(function (dish) {
-      return dish.isNew && matchesCanteen(dish);
+      return dish.isNew && dish.meals.indexOf(mealKey) !== -1 && matchesCanteen(dish);
     });
     const risky = DATA.windows.filter(function (stall) {
-      return stall.warning && (state.canteenId === "all" || stall.canteenId === state.canteenId);
+      if (!stall.warning) return false;
+      if (state.canteenId !== "all" && stall.canteenId !== state.canteenId) return false;
+      return DATA.dishes.some(function (dish) {
+        return dish.windowId === stall.id && dish.meals.indexOf(mealKey) !== -1;
+      });
     });
     let decision = "";
     if (!picked.primary) {
@@ -242,19 +325,23 @@
         '<section class="decision">',
         "<div><p class=\"kicker\">现在没有稳妥选择</p>",
         "<h2>条件有点紧</h2>",
-        '<p class="decision-copy">这个时段里，没有同时满足口味和预算、又避开差评窗口的菜。放宽一点，或者换个食堂。</p>',
+        '<p class="decision-copy">' + meal.label + "里，没有同时满足口味和预算、又避开差评窗口的菜。放宽一点，或者换个食堂。</p>",
         '<div class="btn-row" style="margin-top:16px"><button type="button" class="btn btn-primary" data-action="reset-filters">放宽条件</button></div>',
         "</div></section>"
       ].join("");
     } else {
       const where = place(picked.primary);
+      const nth = (state.pickIndex % picked.total) + 1;
+      const reasons = reasonsFor(picked.primary, todayList()).map(function (line) {
+        return "<li>" + esc(line) + "</li>";
+      }).join("");
       decision = [
         '<section class="decision">',
         "<div>",
-        '<p class="kicker">现在最稳</p>',
+        '<p class="kicker">' + (nth === 1 ? "这一餐最稳" : "换过的选择 · 第 " + nth + " / " + picked.total) + "</p>",
         "<h2>" + esc(picked.primary.name) + "</h2>",
-        '<p class="decision-copy">' + esc(where.canteen.name) + "的这道最稳。" + esc(where.stall.name) + "，" + TASTE[picked.primary.taste] + "，¥" + picked.primary.price + "，现在大约排 " + esc(where.stall.wait) + "。</p>",
-        '<div class="meta-row"><span>' + picked.primary.rating.toFixed(1) + " 分</span><span>" + picked.primary.reviewCount + " 人评过</span><span>" + esc(picked.primary.tags.join(" · ")) + "</span></div>",
+        '<p class="decision-copy">' + esc(where.canteen.name) + " · " + esc(where.stall.name) + "</p>",
+        '<ul class="reasons">' + reasons + "</ul>",
         '<div class="btn-row">',
         '<button type="button" class="btn btn-primary" data-action="open-dish" data-id="' + esc(picked.primary.id) + '">看看评价</button>',
         '<button type="button" class="btn" data-action="shuffle"' + (picked.total < 2 ? " disabled" : "") + ">换一个</button>",
@@ -264,8 +351,11 @@
         "</section>"
       ].join("");
     }
+    const altHint = picked.primary && picked.alts.some(function (dish) {
+      return place(dish).canteen.id !== place(picked.primary).canteen.id;
+    }) ? "尽量换成别的食堂" : "这一餐里的其他选择";
     const alts = picked.alts.length
-      ? '<div class="section-title"><h2>也可以</h2><span>尽量换成别的食堂</span></div><div class="card-grid">' + picked.alts.map(dishCard).join("") + "</div>"
+      ? '<div class="section-title"><h2>也可以</h2><span>' + altHint + '</span></div><div class="card-grid">' + picked.alts.map(dishCard).join("") + "</div>"
       : "";
     const freshBlock = fresh.length
       ? '<div class="section-title"><h2>新上的</h2><span>最近才出现在窗口</span></div><div class="h-scroll">' + fresh.map(dishCard).join("") + "</div>"
@@ -277,9 +367,10 @@
       : "";
     return [
       '<header class="page-head">',
-      '<p class="kicker">' + esc(DATA.campus) + " · " + meal.label + " · " + clock() + "</p>",
-      "<h1>" + greeting() + "，今天吃什么</h1>",
-      '<p class="hint">' + meal.hint + "</p>",
+      '<p class="kicker">' + esc(DATA.campus) + " · " + clock() + (lookingAhead ? " · 现在是" + nowMeal.label : "") + "</p>",
+      "<h1>" + (lookingAhead ? meal.label + "吃什么" : greeting() + "，今天吃什么") + "</h1>",
+      '<p class="hint">' + (lookingAhead ? "按" + meal.label + "来选，不会跟着当前时间变。" : meal.hint) + "</p>",
+      mealSwitch(),
       "</header>",
       '<div class="filters">' + preferenceChips() + "</div>",
       decision,
@@ -422,7 +513,8 @@
   function render() {
     document.querySelectorAll("[data-nav]").forEach(function (btn) {
       const on = btn.dataset.nav === state.view;
-      btn.setAttribute("aria-current", on ? "page" : "false");
+      if (on) btn.setAttribute("aria-current", "page");
+      else btn.removeAttribute("aria-current");
     });
     document.getElementById("view").innerHTML = pages[state.view]();
     document.getElementById("drawer-root").innerHTML = renderDrawer();
@@ -470,6 +562,11 @@
     if (action === "set-canteen") { state.canteenId = btn.dataset.value; state.pickIndex = 0; }
     if (action === "set-taste") { state.taste = btn.dataset.value; state.pickIndex = 0; }
     if (action === "set-budget") { state.budget = btn.dataset.value; state.pickIndex = 0; }
+    if (action === "set-meal") {
+      state.meal = MEALS.indexOf(btn.dataset.value) === -1 ? "auto" : btn.dataset.value;
+      state.pickIndex = 0;
+      saveMeal();
+    }
     if (action === "toggle-new") state.onlyNew = !state.onlyNew;
     if (action === "toggle-risky") state.hideRisky = !state.hideRisky;
     if (action === "reset-filters") resetFilters();
