@@ -242,8 +242,49 @@
     return null;
   }
 
-  function heart(on) {
-    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.6-7 9-7 9z"></path></svg>';
+  function icon(name) {
+    const paths = {
+      star: '<path d="m12 2.8 2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 16.7 6.6 19.6l1-6.1L3.2 9.2l6.1-.9z"/>',
+      pin: '<path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.3"/>',
+      clock: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4.6l3 1.8"/>',
+      search: '<circle cx="11" cy="11" r="6.2"/><path d="m16 16 4.2 4.2"/>',
+      shop: '<path d="M4 10h16l-1.3 9H5.3z"/><path d="m3 10 2.4-6h13.2L21 10"/><path d="M9 14v5M15 14v5"/>',
+      fire: '<path d="M12 3s.8 3.2-.2 5.2C10.6 9.6 9 10.2 9 12.2a3 3 0 0 0 6 0c0-2.2-1.2-3.4-1.2-5.4C13.8 5.2 14 3 12 3z"/>',
+      leaf: '<path d="M12 21c-5.5-3.5-8-8.5-8-13a8 8 0 0 1 16 0c0 4.5-2.5 9.5-8 13z"/><path d="M12 20V9"/>',
+      pepper: '<path d="M12 4c1 2 4 3 4 7a4 4 0 1 1-8 0c0-4 3-5 4-7z"/><path d="M12 4c2 1 3 0 4-1"/>',
+      sun: '<circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/>',
+      moon: '<path d="M16 3.5A8.2 8.2 0 1 0 20.5 16 6.5 6.5 0 0 1 16 3.5z"/>',
+      cup: '<path d="M6 8h10v5a5 5 0 0 1-10 0z"/><path d="M16 9h2.2a2.3 2.3 0 0 1 0 4.6H16"/><path d="M8 20h8"/>',
+      rice: '<path d="M5 10h14c0 6-3 10-7 10S5 16 5 10z"/><path d="M8 10c.6-3 2-4.5 4-4.5S15.4 7 16 10"/>',
+      noodle: '<path d="M3 12c2.2-3 3.6-3 5.4 0s3.2 3 5.4 0 3.2-3 5.4 0"/><path d="M6 16h12"/><path d="M8 16c.6 3 2.2 4.5 4 4.5s3.4-1.5 4-4.5"/>',
+      soup: '<path d="M5 11h14c0 6-3 9-7 9s-7-3-7-9z"/><path d="M9 6c.4 1.4-.4 2-0 3M12 5c.5 1.5-.5 2.2 0 3.4M15 6c.4 1.4-.4 2 0 3"/>',
+      snack: '<path d="M8 10c0-3 1.6-5 4-5s4 2 4 5c2 0 3 1.4 3 3s-1.6 3-4 3H9c-2.4 0-4-1.4-4-3s1-3 3-3z"/>',
+      drum: '<ellipse cx="12" cy="13" rx="8" ry="5"/><ellipse cx="12" cy="13" rx="3.4" ry="2"/>',
+      refresh: '<path d="M20 12a8 8 0 1 1-2.2-5.5"/><path d="M20 4v5h-5"/>',
+      heart: '<path d="M12 20s-7-4.4-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.6-7 9-7 9z"/>',
+      list: '<path d="M8 7h12M8 12h12M8 17h12"/><path d="M4 7h.1M4 12h.1M4 17h.1"/>',
+      warn: '<path d="M12 4 3 19h18z"/><path d="M12 10v4M12 16.5h.1"/>',
+      home: '<path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/>',
+      close: '<path d="M6 6l12 12M18 6 6 18"/>'
+    };
+    return '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + (paths[name] || "") + "</svg>";
+  }
+
+  function stars(score) {
+    const full = Math.round(Number(score));
+    let html = '<span class="stars" aria-hidden="true">';
+    for (let i = 1; i <= 5; i += 1) html += icon("star").replace('class="ico"', 'class="ico star' + (i <= full ? " on" : "") + '"');
+    return html + "</span>";
+  }
+
+  function dishKind(dish) {
+    const text = dish.name + dish.tags.join("");
+    if (/粥|汤|豆浆/.test(text)) return "soup";
+    if (/面|粉/.test(text)) return "noodle";
+    if (/包|糍粑|油条|烤冷面/.test(text)) return "snack";
+    if (/能量|轻食/.test(text)) return "leaf";
+    if (/鸡|堡|炸/.test(text)) return "drum";
+    return "rice";
   }
 
   function highlight(text, query) {
@@ -266,18 +307,19 @@
 
   function favButton(id) {
     const on = favorites.has(id);
-    return '<button type="button" class="fav" data-action="toggle-fav" data-id="' + esc(id) + '" aria-pressed="' + on + '" aria-label="' + (on ? "取消收藏" : "收藏") + '">' + heart(on) + "</button>";
+    return '<button type="button" class="fav" data-action="toggle-fav" data-id="' + esc(id) + '" aria-pressed="' + on + '" aria-label="' + (on ? "取消收藏" : "收藏") + '">' + icon("heart") + "</button>";
   }
 
-  function chip(action, value, current, label) {
+  function chip(action, value, current, label, iconName) {
     const on = String(current) === String(value);
-    return '<button type="button" class="chip" data-action="' + action + '" data-value="' + esc(value) + '" aria-pressed="' + on + '">' + esc(label) + "</button>";
+    return '<button type="button" class="chip" data-action="' + action + '" data-value="' + esc(value) + '" aria-pressed="' + on + '">' + (iconName ? icon(iconName) : "") + esc(label) + "</button>";
   }
 
   function mealSwitch() {
     const labels = { auto: "现在", breakfast: "早餐", lunch: "午餐", tea: "下午", dinner: "晚餐", late: "夜宵" };
+    const icons = { auto: "clock", breakfast: "sun", lunch: "rice", tea: "cup", dinner: "moon", late: "moon" };
     return '<div class="meal-switch" role="group" aria-label="选择餐段">' + MEALS.map(function (value) {
-      return '<button type="button" class="meal" data-action="set-meal" data-value="' + value + '" aria-pressed="' + (state.meal === value) + '">' + labels[value] + "</button>";
+      return '<button type="button" class="meal" data-action="set-meal" data-value="' + value + '" aria-pressed="' + (state.meal === value) + '">' + icon(icons[value]) + labels[value] + "</button>";
     }).join("") + "</div>";
   }
 
@@ -290,17 +332,15 @@
 
   function preferenceChips() {
     return [
-      '<div class="chip-row">' + canteenChips() + "</div>",
-      '<div class="chip-row">',
-      chip("set-taste", "all", state.taste, "口味不限"),
-      chip("set-taste", "mild", state.taste, "清淡"),
-      chip("set-taste", "medium", state.taste, "微辣"),
-      chip("set-taste", "hot", state.taste, "重口"),
-      chip("set-budget", "all", state.budget, "预算不限"),
-      chip("set-budget", "10", state.budget, "≤10 元"),
-      chip("set-budget", "15", state.budget, "≤15 元"),
-      chip("set-budget", "20", state.budget, "≤20 元"),
-      "</div>"
+      canteenChips(),
+      chip("set-taste", "all", state.taste, "不限"),
+      chip("set-taste", "mild", state.taste, "清淡", "leaf"),
+      chip("set-taste", "medium", state.taste, "微辣", "pepper"),
+      chip("set-taste", "hot", state.taste, "重口", "fire"),
+      chip("set-budget", "all", state.budget, "不限价"),
+      chip("set-budget", "10", state.budget, "≤10"),
+      chip("set-budget", "15", state.budget, "≤15"),
+      chip("set-budget", "20", state.budget, "≤20")
     ].join("");
   }
 
@@ -311,14 +351,16 @@
     return [
       '<article class="dish-card">',
       '<button type="button" class="card-hit" data-action="open-dish" data-id="' + esc(dish.id) + '">',
-      '<div class="card-top">',
-      '<span class="tile ' + dish.taste + '">' + esc(dish.name.slice(0, 1)) + "</span>",
-      "<div>",
-      "<h3><span>" + highlight(dish.name, q) + "</span>" + (mark ? '<span class="badge ' + mark.cls + '">' + mark.text + "</span>" : "") + "</h3>",
-      '<p class="score-line"><b>' + dish.rating.toFixed(1) + "</b>分 · " + dish.reviewCount + "人评过</p>",
-      "<p>" + highlight(where.canteen.name, q) + " · " + highlight(where.stall.name, q) + "</p>",
-      "</div></div>",
-      '<div class="card-foot"><span class="price"><small>¥</small>' + dish.price + '</span><span class="wait">约 ' + esc(where.stall.wait) + "</span></div></button>",
+      '<div class="cover ' + dishKind(dish) + '">',
+      icon(dishKind(dish)),
+      mark ? '<span class="badge ' + mark.cls + '">' + mark.text + "</span>" : "",
+      "</div>",
+      '<div class="card-body">',
+      "<h3>" + highlight(dish.name, q) + "</h3>",
+      '<p class="score-line">' + stars(dish.rating) + "<b>" + dish.rating.toFixed(1) + "</b></p>",
+      '<p class="meta">' + icon("pin") + highlight(where.canteen.name, q) + " " + icon("shop") + highlight(where.stall.name, q) + "</p>",
+      '<div class="card-foot"><span class="price"><small>¥</small>' + dish.price + '</span><span class="wait">' + icon("clock") + esc(where.stall.wait) + "</span></div>",
+      "</div></button>",
       favButton(dish.id),
       "</article>"
     ].join("");
@@ -327,8 +369,6 @@
   function renderToday() {
     const mealKey = activeMeal();
     const meal = mealMeta(mealKey);
-    const nowMeal = mealMeta(mealNow());
-    const lookingAhead = state.meal !== "auto";
     const picked = pickToday();
     const fresh = DATA.dishes.filter(function (dish) {
       return dish.isNew && dish.meals.indexOf(mealKey) !== -1 && matchesCanteen(dish);
@@ -343,57 +383,51 @@
     let decision = "";
     if (!picked.primary) {
       decision = [
-        '<section class="decision">',
-        "<div><p class=\"kicker\">现在没有稳妥选择</p>",
-        "<h2>条件有点紧</h2>",
-        '<p class="decision-copy">' + meal.label + "里，没有同时满足口味和预算、又避开差评窗口的菜。放宽一点，或者换个食堂。</p>",
-        '<div class="btn-row" style="margin-top:16px"><button type="button" class="btn btn-primary" data-action="reset-filters">放宽条件</button></div>',
-        "</div></section>"
+        '<section class="hero empty-hero">',
+        icon("search"),
+        "<div><h2>" + meal.label + "没有合适的</h2>",
+        '<button type="button" class="btn btn-primary" data-action="reset-filters">清空筛选</button></div>',
+        "</section>"
       ].join("");
     } else {
       const where = place(picked.primary);
-      const nth = (state.pickIndex % picked.total) + 1;
-      const reasons = reasonsFor(picked.primary, todayList()).map(function (line) {
-        return "<li>" + esc(line) + "</li>";
-      }).join("");
+      const dish = picked.primary;
       decision = [
-        '<section class="decision">',
-        "<div>",
-        '<p class="kicker">' + (nth === 1 ? "这一餐最稳" : "换过的选择 · 第 " + nth + " / " + picked.total) + "</p>",
-        "<h2>" + esc(picked.primary.name) + "</h2>",
-        '<p class="decision-copy">' + esc(where.canteen.name) + " · " + esc(where.stall.name) + "</p>",
-        '<ul class="reasons">' + reasons + "</ul>",
+        '<section class="hero">',
+        '<div class="cover ' + dishKind(dish) + '">' + icon(dishKind(dish)) + "</div>",
+        "<div class=\"hero-main\">",
+        "<h2>" + esc(dish.name) + "</h2>",
+        '<div class="facts">',
+        "<span>" + icon("pin") + esc(where.canteen.name) + "</span>",
+        "<span>" + icon("shop") + esc(where.stall.name) + "</span>",
+        "<span>" + icon("clock") + esc(where.stall.wait) + "</span>",
+        "<span>" + icon(dish.taste === "hot" ? "fire" : dish.taste === "mild" ? "leaf" : "pepper") + TASTE[dish.taste] + "</span>",
+        "</div>",
         '<div class="btn-row">',
-        '<button type="button" class="btn btn-primary" data-action="open-dish" data-id="' + esc(picked.primary.id) + '">看看评价</button>',
-        '<button type="button" class="btn" data-action="shuffle"' + (picked.total < 2 ? " disabled" : "") + ">换一个</button>",
-        '<button type="button" class="btn" data-action="toggle-fav" data-id="' + esc(picked.primary.id) + '">' + (favorites.has(picked.primary.id) ? "已收藏" : "收藏") + "</button>",
+        '<button type="button" class="btn btn-primary" data-action="open-dish" data-id="' + esc(dish.id) + '">' + icon("list") + "评价</button>",
+        '<button type="button" class="btn" data-action="shuffle"' + (picked.total < 2 ? " disabled" : "") + ">" + icon("refresh") + "换一个</button>",
+        '<button type="button" class="btn" data-action="toggle-fav" data-id="' + esc(dish.id) + '">' + icon("heart") + (favorites.has(dish.id) ? "已收藏" : "收藏") + "</button>",
         "</div></div>",
-        '<div class="score-block"><strong>' + picked.primary.rating.toFixed(1) + "</strong><span>窗口 " + where.stall.rating.toFixed(1) + "</span></div>",
+        '<div class="score-block">' + stars(dish.rating) + "<strong>" + dish.rating.toFixed(1) + '</strong><span class="price"><small>¥</small>' + dish.price + "</span></div>",
         "</section>"
       ].join("");
     }
-    const altHint = picked.primary && picked.alts.some(function (dish) {
-      return place(dish).canteen.id !== place(picked.primary).canteen.id;
-    }) ? "尽量换成别的食堂" : "这一餐里的其他选择";
     const alts = picked.alts.length
-      ? '<div class="section-title"><h2>也可以</h2><span>' + altHint + '</span></div><div class="card-grid">' + picked.alts.map(dishCard).join("") + "</div>"
+      ? '<div class="section-title"><h2>其他选择</h2></div><div class="card-grid">' + picked.alts.map(dishCard).join("") + "</div>"
       : "";
     const freshBlock = fresh.length
-      ? '<div class="section-title"><h2>新上的</h2><span>最近才出现在窗口</span></div><div class="h-scroll">' + fresh.map(dishCard).join("") + "</div>"
+      ? '<div class="section-title"><h2>新品</h2></div><div class="card-grid">' + fresh.map(dishCard).join("") + "</div>"
       : "";
     const riskBlock = risky.length
-      ? '<div class="section-title"><h2>先别去</h2><span>近期差评集中的窗口</span></div>' + risky.map(function (stall) {
+      ? '<div class="section-title"><h2>别去</h2></div><div class="window-list">' + risky.map(function (stall) {
         return windowButton(stall, true);
-      }).join("")
+      }).join("") + "</div>"
       : "";
     return [
-      '<header class="page-head">',
-      '<p class="kicker">' + esc(DATA.campus) + " · " + clock() + (lookingAhead ? " · 现在是" + nowMeal.label : "") + "</p>",
-      "<h1>" + (lookingAhead ? meal.label + "吃什么" : greeting() + "，今天吃什么") + "</h1>",
-      '<p class="hint">' + (lookingAhead ? "按" + meal.label + "来选，不会跟着当前时间变。" : meal.hint) + "</p>",
+      '<div class="board">',
       mealSwitch(),
-      "</header>",
-      '<div class="filters">' + preferenceChips() + "</div>",
+      '<div class="strip">' + preferenceChips() + "</div>",
+      "</div>",
       decision,
       alts,
       freshBlock,
@@ -403,36 +437,37 @@
 
   function renderExplore() {
     const list = exploreList();
-    const hidden = state.hideRisky ? DATA.dishes.filter(isRisky).length : 0;
+    const sortRow = [
+      chip("set-sort", "rating", state.sort, "口碑", "star"),
+      chip("set-sort", "price", state.sort, "低价"),
+      chip("set-sort", "wait", state.sort, "少排队", "clock"),
+      '<button type="button" class="toggle" data-action="toggle-new" aria-pressed="' + state.onlyNew + '">' + icon("fire") + "新品</button>",
+      '<button type="button" class="toggle" data-action="toggle-risky" aria-pressed="' + state.hideRisky + '">' + icon("warn") + "避开踩雷</button>"
+    ].join("");
     return [
-      '<header class="page-head"><p class="kicker">菜品</p><h1>找一道想吃的</h1><p class="hint">可以搜菜名、窗口或食堂。每道菜都标了现在大约要排多久。</p></header>',
-      '<div class="filters">',
-      '<input class="search" id="q" type="search" placeholder="搜菜名、窗口或食堂" value="' + esc(state.query) + '" autocomplete="off">',
-      preferenceChips(),
-      '<div class="chip-row">',
-      '<button type="button" class="toggle" data-action="toggle-new" aria-pressed="' + state.onlyNew + '">只看新品</button>',
-      '<button type="button" class="toggle" data-action="toggle-risky" aria-pressed="' + state.hideRisky + '">隐藏踩雷</button>',
-      '<label>排序 <select class="sort" id="sort">',
-      '<option value="rating"' + (state.sort === "rating" ? " selected" : "") + ">口碑优先</option>",
-      '<option value="price"' + (state.sort === "price" ? " selected" : "") + ">价格从低到高</option>",
-      '<option value="wait"' + (state.sort === "wait" ? " selected" : "") + ">少排队</option>",
-      "</select></label>",
-      "</div></div>",
-      '<div class="toolbar"><p class="count">' + list.length + " 道菜" + (hidden && state.hideRisky ? " · 已隐藏踩雷菜" : "") + '</p><button type="button" class="btn" data-action="reset-filters">清空筛选</button></div>',
-      list.length ? '<div class="card-grid">' + list.map(dishCard).join("") + "</div>" : '<div class="empty">没有符合的菜。把预算放宽，或关掉「只看新品」。</div>'
+      '<div class="board">',
+      '<div class="strip">' + preferenceChips() + sortRow + "</div>",
+      '<div class="toolbar"><p class="count">' + list.length + " 道</p>",
+      '<button type="button" class="btn" data-action="reset-filters">清空</button></div>',
+      "</div>",
+      list.length ? '<div class="card-grid">' + list.map(dishCard).join("") + "</div>" : '<div class="empty">' + icon("search") + "<p>没有这道菜</p>" + '<button type="button" class="btn btn-primary" data-action="reset-filters">清空筛选</button></div>'
     ].join("");
   }
 
   function windowButton(stall, bad) {
     const canteen = canteenById(stall.canteenId);
-    const names = DATA.dishes.filter(function (dish) { return dish.windowId === stall.id; }).map(function (dish) { return dish.name; }).join("、");
+    const names = DATA.dishes.filter(function (dish) { return dish.windowId === stall.id; }).map(function (dish) {
+      return '<span class="tag">' + esc(dish.name) + "</span>";
+    }).join("");
     return [
       '<button type="button" class="window-card' + (bad ? " bad" : "") + '" data-action="open-window" data-id="' + esc(stall.id) + '">',
-      '<div class="top"><strong>' + esc(stall.name) + '</strong><span class="rating">' + stall.rating.toFixed(1) + "</span></div>",
-      '<div class="where">' + esc(canteen.name) + " · " + esc(canteen.area) + " · 约 " + esc(stall.wait) + "</div>",
-      '<p class="note">' + esc(stall.note) + "</p>",
-      '<p class="dishes">' + esc(names) + "</p>",
-      "</button>"
+      '<span class="w-ico">' + icon(bad ? "warn" : "shop") + "</span>",
+      "<div class=\"w-main\">",
+      '<div class="top"><strong>' + esc(stall.name) + '</strong><span class="score-pack">' + stars(stall.rating) + '<b class="rating">' + stall.rating.toFixed(1) + "</b></span></div>",
+      '<div class="where"><span>' + icon("pin") + esc(canteen.name) + " " + esc(canteen.area) + "</span><span>" + icon("clock") + esc(stall.wait) + "</span></div>",
+      bad ? '<p class="note">' + esc(stall.note) + "</p>" : "",
+      '<div class="tag-row">' + names + "</div>",
+      "</div></button>"
     ].join("");
   }
 
@@ -445,15 +480,11 @@
       if (state.windowSort === "wait") return waitMinutes(a) - waitMinutes(b) || b.rating - a.rating;
       return b.rating - a.rating;
     });
-    const sortChips = '<div class="chip-row">' +
-      chip("set-window-sort", "rating", state.windowSort, "口碑优先") +
-      chip("set-window-sort", "wait", state.windowSort, "少排队") +
-      "</div>";
+    const sortChips = chip("set-window-sort", "rating", state.windowSort, "口碑", "star") +
+      chip("set-window-sort", "wait", state.windowSort, "少排队", "clock");
     return [
-      '<header class="page-head"><p class="kicker">窗口</p><h1>先看窗口，再点菜</h1><p class="hint">同一道菜，窗口不稳就会踩雷。差评窗口始终单独放在前面。</p></header>',
-      '<div class="filters"><div class="chip-row">' + canteenChips() + "</div>" + sortChips + "</div>",
-      bad.length ? '<div class="section-title"><h2>建议避开</h2><span>' + bad.length + " 个窗口</span></div>" + bad.map(function (stall) { return windowButton(stall, true); }).join("") : "",
-      '<div class="section-title"><h2>' + (state.windowSort === "wait" ? "按排队" : "按口碑") + "</h2><span>分数来自模拟评价</span></div>",
+      '<div class="board"><div class="strip">' + canteenChips() + sortChips + "</div></div>",
+      bad.length ? '<div class="section-title"><h2>别去</h2></div><div class="window-list">' + bad.map(function (stall) { return windowButton(stall, true); }).join("") + "</div>" : "",
       '<ol class="rank">' + good.map(function (stall) { return "<li>" + windowButton(stall, false) + "</li>"; }).join("") + "</ol>"
     ].join("");
   }
@@ -461,8 +492,7 @@
   function renderSaved() {
     const list = DATA.dishes.filter(function (dish) { return favorites.has(dish.id); });
     return [
-      '<header class="page-head"><p class="kicker">收藏</p><h1>想再吃的</h1><p class="hint">收藏只存在这台设备的浏览器里。</p></header>',
-      list.length ? '<div class="card-grid">' + list.map(dishCard).join("") + "</div>" : '<div class="empty">还没有收藏。在菜品上点爱心，下次就不用重新找。</div>'
+      list.length ? '<div class="card-grid">' + list.map(dishCard).join("") + "</div>" : '<div class="empty">' + icon("heart") + "<p>还没有收藏</p></div>"
     ].join("");
   }
 
@@ -476,20 +506,20 @@
     if (!dish) return "";
     const where = place(dish);
     const reviews = dish.reviews.map(function (review) {
-      return "<li><div class=\"review-top\"><strong>" + esc(review.user) + "</strong><span>" + review.score.toFixed(1) + " · " + esc(review.when) + "</span></div><p>" + esc(review.text) + "</p></li>";
+      return "<li><div class=\"review-top\"><strong>" + esc(review.user) + "</strong><span>" + stars(review.score) + esc(review.when) + "</span></div><p>" + esc(review.text) + "</p></li>";
     }).join("");
     return [
       '<div class="backdrop" data-action="close-panel"></div>',
       '<aside class="drawer" role="dialog" aria-modal="true" aria-label="' + esc(dish.name) + '">',
-      '<button type="button" class="drawer-close" data-action="close-panel">关闭</button>',
-      '<p class="kicker" style="margin-top:16px">' + esc(where.canteen.name) + " · " + esc(where.stall.name) + "</p>",
+      '<button type="button" class="drawer-close" data-action="close-panel" aria-label="关闭">' + icon("close") + "</button>",
+      '<div class="cover ' + dishKind(dish) + ' drawer-cover">' + icon(dishKind(dish)) + "</div>",
       "<h2>" + esc(dish.name) + "</h2>",
-      '<div class="stat-line"><span><strong>' + dish.rating.toFixed(1) + "</strong> 分</span><span><strong>¥" + dish.price + "</strong></span><span>" + TASTE[dish.taste] + "</span><span>约 " + esc(where.stall.wait) + "</span></div>",
+      '<div class="facts"><span>' + stars(dish.rating) + "<b>" + dish.rating.toFixed(1) + '</b></span><span class="price"><small>¥</small>' + dish.price + "</span><span>" + icon("pin") + esc(where.canteen.name) + "</span><span>" + icon("clock") + esc(where.stall.wait) + "</span></div>",
       '<p class="summary">' + esc(dish.summary) + "</p>",
       '<div class="tag-row">' + dish.tags.map(function (tag) { return '<span class="tag">' + esc(tag) + "</span>"; }).join("") + "</div>",
-      '<div class="callout' + (where.stall.warning ? " bad" : "") + '">' + esc(where.stall.note) + "</div>",
-      '<div class="btn-row"><button type="button" class="btn btn-primary" data-action="toggle-fav" data-id="' + esc(dish.id) + '">' + (favorites.has(dish.id) ? "取消收藏" : "收藏这道菜") + '</button><button type="button" class="btn" data-action="open-window" data-id="' + esc(where.stall.id) + '">看这个窗口</button></div>',
-      '<div class="section-title"><h2>同学怎么说</h2><span>摘录 ' + dish.reviews.length + " / " + dish.reviewCount + " 条</span></div>",
+      '<div class="callout' + (where.stall.warning ? " bad" : "") + '">' + (where.stall.warning ? icon("warn") : icon("shop")) + esc(where.stall.note) + "</div>",
+      '<div class="btn-row"><button type="button" class="btn btn-primary" data-action="toggle-fav" data-id="' + esc(dish.id) + '">' + icon("heart") + (favorites.has(dish.id) ? "已收藏" : "收藏") + '</button><button type="button" class="btn" data-action="open-window" data-id="' + esc(where.stall.id) + '">' + icon("shop") + "窗口</button></div>",
+      '<div class="section-title"><h2>评价</h2></div>',
       '<ul class="reviews">' + reviews + "</ul>",
       "</aside>"
     ].join("");
@@ -502,25 +532,19 @@
     return [
       '<div class="backdrop" data-action="close-panel"></div>',
       '<aside class="drawer" role="dialog" aria-modal="true" aria-label="' + esc(stall.name) + '">',
-      '<button type="button" class="drawer-close" data-action="close-panel">关闭</button>',
-      '<p class="kicker" style="margin-top:16px">' + esc(canteen.name) + " · " + esc(canteen.area) + "</p>",
+      '<button type="button" class="drawer-close" data-action="close-panel" aria-label="关闭">' + icon("close") + "</button>",
       "<h2>" + esc(stall.name) + "</h2>",
-      '<div class="stat-line"><span><strong>' + stall.rating.toFixed(1) + "</strong> 分</span><span>" + stall.reviewCount + " 条窗口评价</span><span>" + esc(canteen.hours) + "</span></div>",
-      '<div class="callout' + (stall.warning ? " bad" : "") + '">' + esc(stall.note) + "</div>",
-      '<div class="section-title"><h2>这个窗口的菜</h2></div>',
+      '<div class="facts"><span>' + stars(stall.rating) + "<b>" + stall.rating.toFixed(1) + "</b></span><span>" + icon("pin") + esc(canteen.name) + "</span><span>" + icon("clock") + esc(stall.wait) + "</span><span>" + esc(canteen.hours) + "</span></div>",
+      '<div class="callout' + (stall.warning ? " bad" : "") + '">' + (stall.warning ? icon("warn") : icon("shop")) + esc(stall.note) + "</div>",
+      '<div class="section-title"><h2>在售</h2></div>',
       '<div class="card-grid">' + dishes.map(dishCard).join("") + "</div>",
       "</aside>"
     ].join("");
   }
 
   function navIcon(key) {
-    const paths = {
-      today: '<path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-5v-5H10v5H5a1 1 0 0 1-1-1z"/>',
-      explore: '<circle cx="11" cy="11" r="6.2"/><path d="m16 16 4.2 4.2"/>',
-      windows: '<path d="M4 7h16M4 12h16M4 17h10"/>',
-      saved: '<path d="M12 20s-6.5-4.1-6.5-8.4a3.7 3.7 0 0 1 6.5-1.9 3.7 3.7 0 0 1 6.5 1.9C18.5 15.9 12 20 12 20z"/>'
-    };
-    return '<svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true">' + paths[key] + "</svg>";
+    const name = { today: "home", explore: "search", windows: "shop", saved: "heart" }[key];
+    return icon(name).replace('class="ico"', 'class="nav-ico"');
   }
 
   function shell() {
@@ -531,9 +555,9 @@
     return [
       '<div class="layout">',
       '<aside class="sidebar">',
-      '<div class="brand"><span class="logo">食</span><span><strong>食光</strong><small>' + esc(DATA.campus) + "</small></span></div>",
+      '<div class="brand"><span class="logo">食</span><span><strong>食光</strong><small>' + icon("pin") + esc(DATA.campus) + "</small></span></div>",
+      '<label class="top-search">' + icon("search") + '<input id="top-q" type="search" placeholder="搜菜品、窗口、食堂" autocomplete="off"></label>',
       '<nav class="side-nav" aria-label="主导航">' + nav + "</nav>",
-      '<p class="side-note">模拟数据，不是真实档口</p>',
       "</aside>",
       '<main class="main" id="view"></main>',
       "</div>",
@@ -558,6 +582,8 @@
     document.getElementById("view").innerHTML = pages[state.view]();
     document.getElementById("drawer-root").innerHTML = renderDrawer();
     document.title = VIEWS[state.view] + " · 食光";
+    const top = document.getElementById("top-q");
+    if (top && document.activeElement !== top && top.value !== state.query) top.value = state.query;
     if (restoreSearch) {
       const input = document.getElementById("q");
       if (input) {
@@ -603,6 +629,7 @@
     if (action === "set-taste") { state.taste = btn.dataset.value; state.pickIndex = 0; }
     if (action === "set-budget") { state.budget = btn.dataset.value; state.pickIndex = 0; }
     if (action === "set-window-sort") state.windowSort = btn.dataset.value === "wait" ? "wait" : "rating";
+    if (action === "set-sort") state.sort = ["price", "wait"].indexOf(btn.dataset.value) === -1 ? "rating" : btn.dataset.value;
     if (action === "set-meal") {
       state.meal = MEALS.indexOf(btn.dataset.value) === -1 ? "auto" : btn.dataset.value;
       state.pickIndex = 0;
@@ -615,19 +642,25 @@
   }
 
   function onInput(event) {
-    if (event.target.id !== "q") return;
+    if (event.target.id !== "top-q") return;
     state.query = event.target.value;
     if (composing) return;
-    restoreSearch = true;
+    if (state.view !== "explore") {
+      location.hash = "explore";
+      return;
+    }
     render();
   }
 
   function onComposition(event) {
-    if (event.target.id !== "q") return;
+    if (event.target.id !== "top-q") return;
     composing = event.type === "compositionstart";
     if (composing) return;
     state.query = event.target.value;
-    restoreSearch = true;
+    if (state.view !== "explore") {
+      location.hash = "explore";
+      return;
+    }
     render();
   }
 
