@@ -21,6 +21,7 @@
     onlyNew: false,
     hideRisky: true,
     sort: "rating",
+    windowSort: "rating",
     meal: "auto",
     pickIndex: 0,
     panel: null
@@ -226,6 +227,9 @@
     });
     list.sort(function (a, b) {
       if (state.sort === "price") return a.price - b.price || b.rating - a.rating;
+      if (state.sort === "wait") {
+        return waitMinutes(windowById(a.windowId)) - waitMinutes(windowById(b.windowId)) || b.rating - a.rating;
+      }
       return b.rating - a.rating || b.reviewCount - a.reviewCount;
     });
     return list;
@@ -240,6 +244,24 @@
 
   function heart(on) {
     return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.6-7 9-7 9z"></path></svg>';
+  }
+
+  function highlight(text, query) {
+    const source = String(text);
+    const q = String(query || "").trim();
+    if (!q) return esc(source);
+    const pattern = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(pattern, "ig");
+    let out = "";
+    let last = 0;
+    let match = re.exec(source);
+    while (match) {
+      out += esc(source.slice(last, match.index)) + "<mark>" + esc(match[0]) + "</mark>";
+      last = match.index + match[0].length;
+      if (!match[0]) break;
+      match = re.exec(source);
+    }
+    return out + esc(source.slice(last));
   }
 
   function favButton(id) {
@@ -285,15 +307,16 @@
   function dishCard(dish) {
     const where = place(dish);
     const mark = badge(dish);
+    const q = state.view === "explore" ? state.query : "";
     return [
       '<article class="dish-card">',
       '<button type="button" class="card-hit" data-action="open-dish" data-id="' + esc(dish.id) + '">',
       '<div class="card-top">',
       '<span class="tile ' + dish.taste + '">' + esc(dish.name.slice(0, 1)) + "</span>",
       "<div>",
-      "<h3>" + esc(dish.name) + "</h3>",
+      "<h3>" + highlight(dish.name, q) + "</h3>",
       "<p>" + dish.rating.toFixed(1) + " · " + dish.reviewCount + " 人评过</p>",
-      "<p>" + esc(where.canteen.name) + " · " + esc(where.stall.name) + "</p>",
+      "<p>" + highlight(where.canteen.name, q) + " · " + highlight(where.stall.name, q) + " · 约 " + esc(where.stall.wait) + "</p>",
       "</div></div>",
       '<div class="card-foot"><span class="price">¥' + dish.price + "</span>",
       mark ? '<span class="badge ' + mark.cls + '">' + mark.text + "</span>" : "<span></span>",
@@ -384,7 +407,7 @@
     const list = exploreList();
     const hidden = state.hideRisky ? DATA.dishes.filter(isRisky).length : 0;
     return [
-      '<header class="page-head"><p class="kicker">菜品</p><h1>找一道想吃的</h1><p class="hint">按食堂、口味和预算筛。差评菜默认先藏起来。</p></header>',
+      '<header class="page-head"><p class="kicker">菜品</p><h1>找一道想吃的</h1><p class="hint">可以搜菜名、窗口或食堂。每道菜都标了现在大约要排多久。</p></header>',
       '<div class="filters">',
       '<input class="search" id="q" type="search" placeholder="搜菜名、窗口或食堂" value="' + esc(state.query) + '" autocomplete="off">',
       preferenceChips(),
@@ -394,6 +417,7 @@
       '<label>排序 <select class="sort" id="sort">',
       '<option value="rating"' + (state.sort === "rating" ? " selected" : "") + ">口碑优先</option>",
       '<option value="price"' + (state.sort === "price" ? " selected" : "") + ">价格从低到高</option>",
+      '<option value="wait"' + (state.sort === "wait" ? " selected" : "") + ">少排队</option>",
       "</select></label>",
       "</div></div>",
       '<div class="toolbar"><p class="count">' + list.length + " 道菜" + (hidden && state.hideRisky ? " · 已隐藏踩雷菜" : "") + '</p><button type="button" class="btn" data-action="reset-filters">清空筛选</button></div>',
@@ -419,12 +443,19 @@
       return state.canteenId === "all" || stall.canteenId === state.canteenId;
     });
     const bad = stalls.filter(function (stall) { return stall.warning; });
-    const good = stalls.filter(function (stall) { return !stall.warning; }).sort(function (a, b) { return b.rating - a.rating; });
+    const good = stalls.filter(function (stall) { return !stall.warning; }).sort(function (a, b) {
+      if (state.windowSort === "wait") return waitMinutes(a) - waitMinutes(b) || b.rating - a.rating;
+      return b.rating - a.rating;
+    });
+    const sortChips = '<div class="chip-row">' +
+      chip("set-window-sort", "rating", state.windowSort, "口碑优先") +
+      chip("set-window-sort", "wait", state.windowSort, "少排队") +
+      "</div>";
     return [
-      '<header class="page-head"><p class="kicker">窗口</p><h1>先看窗口，再点菜</h1><p class="hint">同一道菜，窗口不稳就会踩雷。这里按档口而不是按菜名排序。</p></header>',
-      '<div class="filters"><div class="chip-row">' + canteenChips() + "</div></div>",
+      '<header class="page-head"><p class="kicker">窗口</p><h1>先看窗口，再点菜</h1><p class="hint">同一道菜，窗口不稳就会踩雷。差评窗口始终单独放在前面。</p></header>',
+      '<div class="filters"><div class="chip-row">' + canteenChips() + "</div>" + sortChips + "</div>",
       bad.length ? '<div class="section-title"><h2>建议避开</h2><span>' + bad.length + " 个窗口</span></div>" + bad.map(function (stall) { return windowButton(stall, true); }).join("") : "",
-      '<div class="section-title"><h2>口碑排序</h2><span>分数来自模拟评价</span></div>',
+      '<div class="section-title"><h2>' + (state.windowSort === "wait" ? "按排队" : "按口碑") + "</h2><span>分数来自模拟评价</span></div>",
       '<ol class="rank">' + good.map(function (stall) { return "<li>" + windowButton(stall, false) + "</li>"; }).join("") + "</ol>"
     ].join("");
   }
@@ -538,6 +569,7 @@
     state.onlyNew = false;
     state.hideRisky = true;
     state.sort = "rating";
+    state.windowSort = "rating";
     state.pickIndex = 0;
   }
 
@@ -562,6 +594,7 @@
     if (action === "set-canteen") { state.canteenId = btn.dataset.value; state.pickIndex = 0; }
     if (action === "set-taste") { state.taste = btn.dataset.value; state.pickIndex = 0; }
     if (action === "set-budget") { state.budget = btn.dataset.value; state.pickIndex = 0; }
+    if (action === "set-window-sort") state.windowSort = btn.dataset.value === "wait" ? "wait" : "rating";
     if (action === "set-meal") {
       state.meal = MEALS.indexOf(btn.dataset.value) === -1 ? "auto" : btn.dataset.value;
       state.pickIndex = 0;

@@ -324,6 +324,12 @@ h1, h2, h3, p { margin: 0; }
 .tile.hot { background: #f8e4df; color: var(--chili-deep); }
 
 .card-hit h3 { font-size: 17px; }
+.card-hit mark {
+  background: #f8ead7;
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+}
 .card-hit p { color: var(--muted); font-size: 13px; margin-top: 2px; }
 
 .card-foot {
