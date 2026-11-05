@@ -3,13 +3,14 @@
   const app = document.getElementById("app");
   const FAV_KEY = "shiguang.favorites";
   const MEAL_KEY = "shiguang.meal";
+  const REVIEW_KEY = "shiguang.reviews";
   const MEALS = ["auto", "breakfast", "lunch", "tea", "dinner", "late"];
   const TASTE = { mild: "清淡", medium: "微辣", hot: "重口" };
   const VIEWS = {
     today: "今天吃什么",
     explore: "找菜",
     windows: "窗口口碑",
-    saved: "我的收藏"
+    saved: "我的"
   };
 
   const state = {
@@ -24,8 +25,13 @@
     windowSort: "rating",
     meal: "auto",
     pickIndex: 0,
-    panel: null
+    panel: null,
+    draftScore: 0,
+    draftText: "",
+    draftError: ""
   };
+
+  let reviews = {};
 
   let restoreSearch = false;
   let composing = false;
@@ -82,6 +88,58 @@
   function canteenById(id) { return byId(DATA.canteens, id); }
   function dishById(id) { return byId(DATA.dishes, id); }
 
+  function loadReviews() {
+    const out = {};
+    try {
+      const raw = JSON.parse(localStorage.getItem(REVIEW_KEY) || "{}");
+      if (!raw || typeof raw !== "object") return out;
+      Object.keys(raw).forEach(function (id) {
+        const item = raw[id];
+        const score = Math.round(Number(item && item.score));
+        const text = String(item && item.text || "").trim().slice(0, 60);
+        if (!dishById(id) || score < 1 || score > 5 || text.length < 2) return;
+        out[id] = { score: score, text: text, at: Number(item.at) || Date.now() };
+      });
+    } catch (err) {
+      /* 读坏了就当还没写过评价。 */
+    }
+    return out;
+  }
+
+  function saveReviews() {
+    try {
+      localStorage.setItem(REVIEW_KEY, JSON.stringify(reviews));
+    } catch (err) {
+      /* 写不进去就只留在这次浏览里。 */
+    }
+  }
+
+  function userReview(id) {
+    return reviews[id] || null;
+  }
+
+  function whenLabel(at) {
+    const diff = Date.now() - Number(at || 0);
+    if (diff < 60000) return "刚刚";
+    if (diff < 3600000) return Math.floor(diff / 60000) + " 分钟前";
+    const day = new Date(at);
+    const now = new Date();
+    if (day.toDateString() === now.toDateString()) return "今天";
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    if (day.toDateString() === yesterday.toDateString()) return "昨天";
+    return (day.getMonth() + 1) + "月" + day.getDate() + "日";
+  }
+
+  function beginDraft(id) {
+    const mine = userReview(id);
+    state.draftScore = mine ? mine.score : 0;
+    state.draftText = mine ? mine.text : "";
+    state.draftError = "";
+  }
+
+  reviews = loadReviews();
+
   function mealNow() {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 9) return "breakfast";
@@ -121,7 +179,11 @@
   function dishScore(dish, meal) {
     const stall = windowById(dish.windowId);
     const familiarity = Math.min(dish.reviewCount, 400) / 80;
-    return dish.rating * 10 + familiarity - waitMinutes(stall) * waitWeight(meal);
+    let score = dish.rating * 10 + familiarity - waitMinutes(stall) * waitWeight(meal);
+    const mine = userReview(dish.id);
+    if (mine && mine.score >= 4) score += 6;
+    else if (mine && mine.score === 3) score += 1;
+    return score;
   }
 
   function median(nums) {
@@ -169,6 +231,8 @@
   function todayList() {
     const meal = activeMeal();
     return DATA.dishes.filter(function (dish) {
+      const mine = userReview(dish.id);
+      if (mine && mine.score <= 2) return false;
       return dish.meals.indexOf(meal) !== -1 && matchesCanteen(dish) && matchesTasteBudget(dish) && !isRisky(dish);
     }).sort(function (a, b) {
       return dishScore(b, meal) - dishScore(a, meal);
@@ -236,6 +300,8 @@
   }
 
   function badge(dish) {
+    const mine = userReview(dish.id);
+    if (mine && mine.score <= 2) return { cls: "bad", text: "差评" };
     if (isRisky(dish)) return { cls: "bad", text: "踩雷" };
     if (dish.isNew) return { cls: "new", text: "新品" };
     if (dish.rating >= 4.5) return { cls: "safe", text: "稳" };
@@ -483,10 +549,28 @@
     ].join("");
   }
 
-  function renderSaved() {
-    const list = DATA.dishes.filter(function (dish) { return favorites.has(dish.id); });
+  function myReviewButton(entry) {
+    const dish = entry.dish;
     return [
-      list.length ? '<div class="card-grid">' + list.map(dishCard).join("") + "</div>" : '<div class="empty">' + icon("heart") + "<p>还没有收藏</p></div>"
+      '<button type="button" class="my-review" data-action="open-dish" data-id="' + esc(dish.id) + '">',
+      '<img src="img/' + esc(dish.id) + '.jpg" alt="">',
+      "<div><strong>" + esc(dish.name) + "</strong>",
+      '<span class="score-line">' + stars(entry.score) + "<b>" + entry.score.toFixed(1) + "</b><em>" + esc(whenLabel(entry.at)) + "</em></span>",
+      "<p>" + esc(entry.text) + "</p></div></button>"
+    ].join("");
+  }
+
+  function renderSaved() {
+    const mine = Object.keys(reviews).map(function (id) {
+      return { id: id, score: reviews[id].score, text: reviews[id].text, at: reviews[id].at, dish: dishById(id) };
+    }).filter(function (entry) { return entry.dish; }).sort(function (a, b) { return b.at - a.at; });
+    const list = DATA.dishes.filter(function (dish) { return favorites.has(dish.id); });
+    if (!mine.length && !list.length) {
+      return '<div class="empty">' + icon("heart") + "<p>还没有评价和收藏</p></div>";
+    }
+    return [
+      mine.length ? '<div class="section-title"><h2>我的评价</h2></div><div class="review-list">' + mine.map(myReviewButton).join("") + "</div>" : "",
+      list.length ? '<div class="section-title"><h2>收藏</h2></div><div class="card-grid">' + list.map(dishCard).join("") + "</div>" : ""
     ].join("");
   }
 
@@ -496,12 +580,38 @@
     return windowDrawer(windowById(state.panel.id));
   }
 
+  function scorePicker(current) {
+    let html = '<div class="score-pick" role="radiogroup" aria-label="打分">';
+    for (let i = 1; i <= 5; i += 1) {
+      html += '<button type="button" class="pick-star' + (i <= current ? " on" : "") + '" data-action="set-score" data-value="' + i + '" aria-label="' + i + '分" aria-pressed="' + (i === current) + '">' + icon("star") + "</button>";
+    }
+    return html + "</div>";
+  }
+
+  function reviewComposer(dish) {
+    const mine = userReview(dish.id);
+    return [
+      '<div class="review-box">',
+      scorePicker(state.draftScore),
+      '<textarea id="review-text" maxlength="60" rows="2" placeholder="写一句">' + esc(state.draftText) + "</textarea>",
+      state.draftError ? '<p class="err">' + esc(state.draftError) + "</p>" : "",
+      '<div class="btn-row">',
+      '<button type="button" class="btn btn-primary" data-action="save-review" data-id="' + esc(dish.id) + '">' + (mine ? "更新" : "发布") + "</button>",
+      mine ? '<button type="button" class="btn" data-action="delete-review" data-id="' + esc(dish.id) + '">删除</button>' : "",
+      "</div></div>"
+    ].join("");
+  }
+
   function dishDrawer(dish) {
     if (!dish) return "";
     const where = place(dish);
-    const reviews = dish.reviews.map(function (review) {
+    const mine = userReview(dish.id);
+    const crowd = dish.reviews.map(function (review) {
       return "<li><div class=\"review-top\"><strong>" + esc(review.user) + "</strong><span>" + stars(review.score) + esc(review.when) + "</span></div><p>" + esc(review.text) + "</p></li>";
     }).join("");
+    const own = mine
+      ? "<li class=\"mine\"><div class=\"review-top\"><strong>我</strong><span>" + stars(mine.score) + esc(whenLabel(mine.at)) + "</span></div><p>" + esc(mine.text) + "</p></li>"
+      : "";
     return [
       '<div class="backdrop" data-action="close-panel"></div>',
       '<aside class="drawer" role="dialog" aria-modal="true" aria-label="' + esc(dish.name) + '">',
@@ -514,7 +624,8 @@
       '<div class="callout' + (where.stall.warning ? " bad" : "") + '">' + (where.stall.warning ? icon("warn") : icon("shop")) + esc(where.stall.note) + "</div>",
       '<div class="btn-row"><button type="button" class="btn btn-primary" data-action="toggle-fav" data-id="' + esc(dish.id) + '">' + icon("heart") + (favorites.has(dish.id) ? "已收藏" : "收藏") + '</button><button type="button" class="btn" data-action="open-window" data-id="' + esc(where.stall.id) + '">' + icon("shop") + "窗口</button></div>",
       '<div class="section-title"><h2>评价</h2></div>',
-      '<ul class="reviews">' + reviews + "</ul>",
+      reviewComposer(dish),
+      '<ul class="reviews">' + own + crowd + "</ul>",
       "</aside>"
     ].join("");
   }
@@ -543,7 +654,7 @@
 
   function shell() {
     const nav = Object.keys(VIEWS).map(function (key) {
-      const short = { today: "今天", explore: "找菜", windows: "窗口", saved: "收藏" }[key];
+      const short = { today: "今天", explore: "找菜", windows: "窗口", saved: "我的" }[key];
       return '<button type="button" class="nav-btn" data-action="nav" data-nav="' + key + '">' + navIcon(key) + '<span class="long">' + VIEWS[key] + '</span><span class="short">' + short + "</span></button>";
     }).join("");
     return [
@@ -610,7 +721,34 @@
       if (location.hash !== "#" + btn.dataset.nav) location.hash = btn.dataset.nav;
       return;
     }
-    if (action === "open-dish") state.panel = { type: "dish", id: id };
+    if (action === "open-dish") {
+      state.panel = { type: "dish", id: id };
+      beginDraft(id);
+    }
+    if (action === "set-score") {
+      const score = Number(btn.dataset.value);
+      if (score >= 1 && score <= 5) state.draftScore = score;
+      state.draftError = "";
+    }
+    if (action === "save-review") {
+      const field = document.getElementById("review-text");
+      const text = String(field ? field.value : state.draftText).trim().slice(0, 60);
+      state.draftText = text;
+      if (state.draftScore < 1) state.draftError = "先打分";
+      else if (text.length < 2) state.draftError = "再写一句";
+      else if (dishById(id)) {
+        reviews[id] = { score: state.draftScore, text: text, at: Date.now() };
+        saveReviews();
+        state.draftError = "";
+        state.pickIndex = 0;
+      }
+    }
+    if (action === "delete-review") {
+      delete reviews[id];
+      saveReviews();
+      beginDraft(id);
+      state.pickIndex = 0;
+    }
     if (action === "open-window") state.panel = { type: "window", id: id };
     if (action === "close-panel") state.panel = null;
     if (action === "toggle-fav") {
@@ -636,6 +774,10 @@
   }
 
   function onInput(event) {
+    if (event.target.id === "review-text") {
+      state.draftText = event.target.value;
+      return;
+    }
     if (event.target.id !== "top-q") return;
     state.query = event.target.value;
     if (composing) return;
@@ -647,6 +789,11 @@
   }
 
   function onComposition(event) {
+    if (event.target.id === "review-text") {
+      composing = event.type === "compositionstart";
+      if (!composing) state.draftText = event.target.value;
+      return;
+    }
     if (event.target.id !== "top-q") return;
     composing = event.type === "compositionstart";
     if (composing) return;
