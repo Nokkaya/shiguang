@@ -465,6 +465,16 @@ h1, h2, h3, p { margin: 0; }
 .my-review strong { display: block; font-size: 15px; }
 .my-review .score-line em { color: #999; font-style: normal; font-weight: 500; font-size: 12px; }
 .my-review p { margin-top: 4px; color: #444; font-size: 13px; }
+.ate-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding-right: 10px;
+}
+.ate-row .my-review { box-shadow: none; flex: 1; min-width: 0; }
 .reviews li { padding: 12px 14px; border-top: 1px solid #f0f0f0; }
 .reviews li:first-child { border-top: 0; }
 .review-top { justify-content: space-between; font-size: 13px; }

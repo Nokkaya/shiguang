@@ -4,6 +4,7 @@
   const FAV_KEY = "shiguang.favorites";
   const MEAL_KEY = "shiguang.meal";
   const REVIEW_KEY = "shiguang.reviews";
+  const EAT_KEY = "shiguang.eaten";
   const MEALS = ["auto", "breakfast", "lunch", "tea", "dinner", "late"];
   const TASTE = { mild: "清淡", medium: "微辣", hot: "重口" };
   const VIEWS = {
@@ -32,6 +33,7 @@
   };
 
   let reviews = {};
+  let eaten = [];
 
   let restoreSearch = false;
   let composing = false;
@@ -138,7 +140,51 @@
     state.draftError = "";
   }
 
+  function loadEaten() {
+    const out = [];
+    try {
+      const raw = JSON.parse(localStorage.getItem(EAT_KEY) || "[]");
+      if (!Array.isArray(raw)) return out;
+      raw.forEach(function (item) {
+        const id = item && item.id;
+        const at = Number(item && item.at);
+        const meal = item && item.meal;
+        if (!dishById(id) || !at) return;
+        out.push({
+          id: id,
+          at: at,
+          meal: ["breakfast", "lunch", "tea", "dinner", "late"].indexOf(meal) === -1 ? "lunch" : meal
+        });
+      });
+    } catch (err) {
+      /* 读坏了就当还没记过这顿。 */
+    }
+    return out.slice(0, 40);
+  }
+
+  function saveEaten() {
+    try {
+      localStorage.setItem(EAT_KEY, JSON.stringify(eaten));
+    } catch (err) {
+      /* 写不进去就只留在这次浏览里。 */
+    }
+  }
+
+  function eatenRecent(id) {
+    const hit = eaten.find(function (item) { return item.id === id; });
+    return Boolean(hit && Date.now() - hit.at < 48 * 60 * 60 * 1000);
+  }
+
+  function markEaten(id) {
+    if (!dishById(id)) return;
+    eaten = eaten.filter(function (item) { return item.id !== id; });
+    eaten.unshift({ id: id, at: Date.now(), meal: activeMeal() });
+    eaten = eaten.slice(0, 40);
+    saveEaten();
+  }
+
   reviews = loadReviews();
+  eaten = loadEaten();
 
   function mealNow() {
     const hour = new Date().getHours();
@@ -233,6 +279,7 @@
     return DATA.dishes.filter(function (dish) {
       const mine = userReview(dish.id);
       if (mine && mine.score <= 2) return false;
+      if (eatenRecent(dish.id)) return false;
       return dish.meals.indexOf(meal) !== -1 && matchesCanteen(dish) && matchesTasteBudget(dish) && !isRisky(dish);
     }).sort(function (a, b) {
       return dishScore(b, meal) - dishScore(a, meal);
@@ -331,7 +378,8 @@
       list: '<path d="M8 7h12M8 12h12M8 17h12"/><path d="M4 7h.1M4 12h.1M4 17h.1"/>',
       warn: '<path d="M12 4 3 19h18z"/><path d="M12 10v4M12 16.5h.1"/>',
       home: '<path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/>',
-      close: '<path d="M6 6l12 12M18 6 6 18"/>'
+      close: '<path d="M6 6l12 12M18 6 6 18"/>',
+      check: '<path d="M5 12.5 9.2 17 19 7"/>'
     };
     return '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + (paths[name] || "") + "</svg>";
   }
@@ -427,7 +475,7 @@
     const meal = mealMeta(mealKey);
     const picked = pickToday();
     const fresh = DATA.dishes.filter(function (dish) {
-      return dish.isNew && dish.meals.indexOf(mealKey) !== -1 && matchesCanteen(dish);
+      return dish.isNew && dish.meals.indexOf(mealKey) !== -1 && matchesCanteen(dish) && !eatenRecent(dish.id);
     });
     const risky = DATA.windows.filter(function (stall) {
       if (!stall.warning) return false;
@@ -438,12 +486,15 @@
     });
     let decision = "";
     if (!picked.primary) {
+      const settled = state.canteenId === "all" && state.taste === "all" && state.budget === "all" && DATA.dishes.some(function (dish) {
+        return dish.meals.indexOf(mealKey) !== -1 && eatenRecent(dish.id);
+      });
       decision = [
         '<section class="hero empty-hero">',
-        icon("search"),
-        "<div><h2>" + meal.label + "没有合适的</h2>",
-        '<button type="button" class="btn btn-primary" data-action="reset-filters">清空筛选</button></div>',
-        "</section>"
+        icon(settled ? "check" : "search"),
+        "<div><h2>" + meal.label + (settled ? "都吃过了" : "没有合适的") + "</h2>",
+        settled ? "" : '<button type="button" class="btn btn-primary" data-action="reset-filters">清空筛选</button>',
+        "</div></section>"
       ].join("");
     } else {
       const where = place(picked.primary);
@@ -460,7 +511,8 @@
         "<span>" + icon(dish.taste === "hot" ? "fire" : dish.taste === "mild" ? "leaf" : "pepper") + TASTE[dish.taste] + "</span>",
         "</div>",
         '<div class="btn-row">',
-        '<button type="button" class="btn btn-primary" data-action="open-dish" data-id="' + esc(dish.id) + '">' + icon("list") + "评价</button>",
+        '<button type="button" class="btn btn-primary" data-action="eat" data-id="' + esc(dish.id) + '">' + icon("check") + "就吃这个</button>",
+        '<button type="button" class="btn" data-action="open-dish" data-id="' + esc(dish.id) + '">' + icon("list") + "评价</button>",
         '<button type="button" class="btn" data-action="shuffle"' + (picked.total < 2 ? " disabled" : "") + ">" + icon("refresh") + "换一个</button>",
         '<button type="button" class="btn" data-action="toggle-fav" data-id="' + esc(dish.id) + '">' + icon("heart") + (favorites.has(dish.id) ? "已收藏" : "收藏") + "</button>",
         "</div></div>",
@@ -560,15 +612,32 @@
     ].join("");
   }
 
+  function eatenRow(entry) {
+    const dish = entry.dish;
+    return [
+      '<div class="ate-row">',
+      '<button type="button" class="my-review" data-action="open-dish" data-id="' + esc(dish.id) + '">',
+      '<img src="img/' + esc(dish.id) + '.jpg" alt="">',
+      "<div><strong>" + esc(dish.name) + "</strong>",
+      '<span class="score-line"><em>' + esc(mealMeta(entry.meal).label) + " · " + esc(whenLabel(entry.at)) + "</em></span></div></button>",
+      '<button type="button" class="btn" data-action="uneat" data-id="' + esc(dish.id) + '">撤销</button>',
+      "</div>"
+    ].join("");
+  }
+
   function renderSaved() {
+    const recent = eaten.map(function (item) {
+      return { id: item.id, at: item.at, meal: item.meal, dish: dishById(item.id) };
+    }).filter(function (entry) { return entry.dish; });
     const mine = Object.keys(reviews).map(function (id) {
       return { id: id, score: reviews[id].score, text: reviews[id].text, at: reviews[id].at, dish: dishById(id) };
     }).filter(function (entry) { return entry.dish; }).sort(function (a, b) { return b.at - a.at; });
     const list = DATA.dishes.filter(function (dish) { return favorites.has(dish.id); });
-    if (!mine.length && !list.length) {
+    if (!recent.length && !mine.length && !list.length) {
       return '<div class="empty">' + icon("heart") + "<p>还没有评价和收藏</p></div>";
     }
     return [
+      recent.length ? '<div class="section-title"><h2>最近吃过</h2></div><div class="review-list">' + recent.map(eatenRow).join("") + "</div>" : "",
       mine.length ? '<div class="section-title"><h2>我的评价</h2></div><div class="review-list">' + mine.map(myReviewButton).join("") + "</div>" : "",
       list.length ? '<div class="section-title"><h2>收藏</h2></div><div class="card-grid">' + list.map(dishCard).join("") + "</div>" : ""
     ].join("");
@@ -742,6 +811,15 @@
         state.draftError = "";
         state.pickIndex = 0;
       }
+    }
+    if (action === "eat") {
+      markEaten(id);
+      state.pickIndex = 0;
+    }
+    if (action === "uneat") {
+      eaten = eaten.filter(function (item) { return item.id !== id; });
+      saveEaten();
+      state.pickIndex = 0;
     }
     if (action === "delete-review") {
       delete reviews[id];
