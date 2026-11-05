@@ -277,16 +277,6 @@
     return html + "</span>";
   }
 
-  function dishKind(dish) {
-    const text = dish.name + dish.tags.join("");
-    if (/粥|汤|豆浆/.test(text)) return "soup";
-    if (/面|粉/.test(text)) return "noodle";
-    if (/包|糍粑|油条|烤冷面/.test(text)) return "snack";
-    if (/能量|轻食/.test(text)) return "leaf";
-    if (/鸡|堡|炸/.test(text)) return "drum";
-    return "rice";
-  }
-
   function highlight(text, query) {
     const source = String(text);
     const q = String(query || "").trim();
@@ -351,8 +341,8 @@
     return [
       '<article class="dish-card">',
       '<button type="button" class="card-hit" data-action="open-dish" data-id="' + esc(dish.id) + '">',
-      '<div class="cover ' + dishKind(dish) + '">',
-      icon(dishKind(dish)),
+      '<div class="cover">',
+      '<img src="img/' + esc(dish.id) + '.jpg" alt="">',
       mark ? '<span class="badge ' + mark.cls + '">' + mark.text + "</span>" : "",
       "</div>",
       '<div class="card-body">',
@@ -394,7 +384,7 @@
       const dish = picked.primary;
       decision = [
         '<section class="hero">',
-        '<div class="cover ' + dishKind(dish) + '">' + icon(dishKind(dish)) + "</div>",
+        '<div class="cover"><img src="img/' + esc(dish.id) + '.jpg" alt=""></div>',
         "<div class=\"hero-main\">",
         "<h2>" + esc(dish.name) + "</h2>",
         '<div class="facts">',
@@ -456,12 +446,16 @@
 
   function windowButton(stall, bad) {
     const canteen = canteenById(stall.canteenId);
-    const names = DATA.dishes.filter(function (dish) { return dish.windowId === stall.id; }).map(function (dish) {
+    const served = DATA.dishes.filter(function (dish) { return dish.windowId === stall.id; });
+    const names = served.map(function (dish) {
       return '<span class="tag">' + esc(dish.name) + "</span>";
     }).join("");
+    const thumb = served[0]
+      ? '<img src="img/' + esc(served[0].id) + '.jpg" alt="">'
+      : icon(bad ? "warn" : "shop");
     return [
       '<button type="button" class="window-card' + (bad ? " bad" : "") + '" data-action="open-window" data-id="' + esc(stall.id) + '">',
-      '<span class="w-ico">' + icon(bad ? "warn" : "shop") + "</span>",
+      '<span class="w-ico">' + thumb + "</span>",
       "<div class=\"w-main\">",
       '<div class="top"><strong>' + esc(stall.name) + '</strong><span class="score-pack">' + stars(stall.rating) + '<b class="rating">' + stall.rating.toFixed(1) + "</b></span></div>",
       '<div class="where"><span>' + icon("pin") + esc(canteen.name) + " " + esc(canteen.area) + "</span><span>" + icon("clock") + esc(stall.wait) + "</span></div>",
@@ -512,7 +506,7 @@
       '<div class="backdrop" data-action="close-panel"></div>',
       '<aside class="drawer" role="dialog" aria-modal="true" aria-label="' + esc(dish.name) + '">',
       '<button type="button" class="drawer-close" data-action="close-panel" aria-label="关闭">' + icon("close") + "</button>",
-      '<div class="cover ' + dishKind(dish) + ' drawer-cover">' + icon(dishKind(dish)) + "</div>",
+      '<div class="cover drawer-cover"><img src="img/' + esc(dish.id) + '.jpg" alt=""></div>',
       "<h2>" + esc(dish.name) + "</h2>",
       '<div class="facts"><span>' + stars(dish.rating) + "<b>" + dish.rating.toFixed(1) + '</b></span><span class="price"><small>¥</small>' + dish.price + "</span><span>" + icon("pin") + esc(where.canteen.name) + "</span><span>" + icon("clock") + esc(where.stall.wait) + "</span></div>",
       '<p class="summary">' + esc(dish.summary) + "</p>",
